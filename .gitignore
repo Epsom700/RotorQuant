@@ -65,3 +65,4 @@ models--*/
 # ── Misc ──
 *.xlsx
 *.csv
+test_results.txt
