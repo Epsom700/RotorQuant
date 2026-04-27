@@ -1,0 +1,67 @@
+# ──────────────────────────────────────────────
+#  RotorQuant .gitignore
+# ──────────────────────────────────────────────
+
+# ── Compiled binaries & shared objects ──
+*.o
+*.so
+*.so.*
+*.dylib
+*.a
+*.out
+*.exe
+lloyd_max
+rotation
+test_rotor_quant
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+*.egg
+
+# ── Build directories ──
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+Makefile
+cmake_install.cmake
+
+# ── Virtual environments ──
+rotorQuant/
+.venv/
+venv/
+env/
+
+# ── Model weights (multi-GB, never commit) ──
+Llama-*/
+models--*/
+
+# ── Secrets ──
+.env
+
+# ── IDE / Editor ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── macOS ──
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Claude Code ──
+.claude/
+
+# ── Backup files ──
+*.bak
+*.bak2
+
+# ── Misc ──
+*.xlsx
+*.csv
