@@ -83,18 +83,18 @@ void RotorQuant::encode_decode_2d_inplace(double* data, int rows, int cols){
     }
 }
 
-// Batched float32 round-trip using Apple Accelerate.
+// Batched float32 round-trip using in-place FWHT.
 //
 // Math (per-row, treating x as a column vector):
-//   forward  : r = H * (flips ⊙ x)         then quantize r elementwise
-//   inverse  : y = flips ⊙ (H^T * dequant(r))
+//   forward  : r = FWHT(flips ⊙ x)         then quantize r elementwise
+//   inverse  : y = flips ⊙ FWHT(dequant(r))
 //
 // In row-major batch form (rows of X are samples):
 //   X *= flips                   (broadcast)
-//   R  = X @ H^T                 (sgemm)
-//   R  = quantize/dequantize(R)  (bucketize + LUT, elementwise)
-//   Y  = R @ H                   (sgemm)
-//   Y *= flips                   (broadcast)
+//   X  = FWHT(X)                 (in-place, per row, O(n log n))
+//   X  = quantize/dequantize(X)  (bucketize + LUT, elementwise)
+//   X  = FWHT(X)                 (in-place, per row)
+//   X *= flips                   (broadcast)
 
 void RotorQuant::encode_decode_batch_f32(float* data, int rows, int cols){
     if (cols != n_) throw std::runtime_error("RotorQuant: cols must equal n");

@@ -13,14 +13,6 @@ add_library(rotorquant_core OBJECT
 )
 target_include_directories(rotorquant_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-# ── Apple Accelerate framework (required for batched f32 path) ───
-find_library(ACCELERATE_FRAMEWORK Accelerate)
-if(ACCELERATE_FRAMEWORK)
-    target_link_libraries(rotorquant_core PUBLIC ${ACCELERATE_FRAMEWORK})
-    message(STATUS "Found Accelerate framework: ${ACCELERATE_FRAMEWORK}")
-else()
-    message(WARNING "Accelerate framework not found — encode_decode_batch_f32 will fail to link")
-endif()
 
 # ── OpenMP (optional, for parallel encode/decode) ────────────────
 find_package(OpenMP QUIET)
