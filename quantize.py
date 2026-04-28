@@ -18,7 +18,7 @@ class STEQuantize(torch.autograd.Function):
              .contiguous()
              .numpy()
         )
-        # M4-optimized: batched Accelerate (sgemm) + bucketize, in-place on f32 buffer
+        # f32 in-place quant+dequant on CPU using RotorQuant; arr is modified in-place
         rq.encode_decode_batch_f32(arr)
         out = torch.from_numpy(arr).to(device=original_device, dtype=original_dtype)
         return out.reshape(original_shape)
@@ -29,13 +29,13 @@ class STEQuantize(torch.autograd.Function):
 
 
 class RotorQuantLayer(torch.nn.Module):
-    def __init__(self, layer, actual_dim, num_levels, sigma):
+    def __init__(self, layer, actual_dim, rq):
         super().__init__()
-        print(f"Initializing RotorQuantLayer with n={actual_dim}, num_levels={num_levels}, sigma={sigma}")
+        print(f"Initializing RotorQuantLayer with n={actual_dim}")
         self.padded_dim = 2**math.ceil(math.log2(actual_dim))
         self.actual_dim = actual_dim
         self.pad_size = self.padded_dim - self.actual_dim
-        self.rq = rotorquant.RotorQuant(self.padded_dim, num_levels, sigma)
+        self.rq = rq
         self.layer = layer
 
     def forward(self, x):
@@ -52,7 +52,8 @@ class RotorQuantLayer(torch.nn.Module):
 
 def inject_rotorquant(model, num_levels, sigma):
     act_dim = model.config.intermediate_size
+    rq = rotorquant.RotorQuant(act_dim, num_levels, sigma)
     for i in range(len(model.model.layers)):
         original_act = model.model.layers[i].mlp.act_fn
-        model.model.layers[i].mlp.act_fn = RotorQuantLayer(original_act, act_dim, num_levels, sigma)
+        model.model.layers[i].mlp.act_fn = RotorQuantLayer(original_act, act_dim, rq)
     return model

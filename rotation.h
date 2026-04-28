@@ -11,13 +11,12 @@ class Rotation{
         ~Rotation() = default; 
         std::vector<double> rotate(const std::vector<double>& activations);
         std::vector<double> inverse_rotate(const std::vector<double>& activations);
-        const std::vector<std::vector<double>>& hadamard() const { return hadamard_; }
         const std::vector<double>& random_flips() const { return random_flips_; }
 
     private:
         
-        std::vector<std::vector<double>> hadamard_; 
-        std::vector<std::vector<double>> generate_hadamard(int n); 
+        int n_; 
+        static void fwht(std::vector<double>& data);
         std::vector<double> random_flips_; 
 
         

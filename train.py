@@ -13,7 +13,7 @@ def get_memory_usage():
 
 
 model_name = "/Users/arjunsingh/.cache/huggingface/hub/models--meta-llama--Llama-3.2-3B-Instruct/snapshots/0cb88a4f764b7a12671c53f0838cd831a0843b95"
-NUM_STEPS = 100
+NUM_STEPS = 10
 BATCH_SIZE = 4
 SEQ_LEN = 128
 GRAD_ACCUM = 2
@@ -145,7 +145,7 @@ tokenizer.pad_token = tokenizer.eos_token
 print("Loading dataset...")
 dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
 
-# baseline_losses = run_training(use_rotorquant=False, num_steps=NUM_STEPS, tokenizer=tokenizer, dataset=dataset)
+baseline_losses = run_training(use_rotorquant=False, num_steps=NUM_STEPS, tokenizer=tokenizer, dataset=dataset)
 rotorquant_losses = run_training(use_rotorquant=True, num_steps=NUM_STEPS, tokenizer=tokenizer, dataset=dataset)
 
 print("\n" + "="*60)
