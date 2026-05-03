@@ -75,3 +75,5 @@ visualize_quantize_timings.ipynb
 
 # --- Logs --
 seg_fault.logs
+*.air
+*.metallib
