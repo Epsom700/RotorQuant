@@ -105,6 +105,7 @@ void RotorQuant::encode_decode_batch_f32(float* data, int rows, int cols){
     const int L = static_cast<int>(centroids_f32_.size());
 
     // 1. Multiply each column by its flip sign (apply random sign flips per-dimension)
+    #pragma omp parallel for
     for (int r = 0; r < rows; r++) {
         float* row = data + r * cols;
         for (int c = 0; c < cols; c++) row[c] *= flips[c];
@@ -116,6 +117,7 @@ void RotorQuant::encode_decode_batch_f32(float* data, int rows, int cols){
     // 2. Elementwise quantize + dequantize the rotated coefficients.
     //    'bp' contains breakpoints (-inf .. +inf) and 'cent' contains centroids for each bucket.
     //    For each value v choose the bucket index k (largest k with bp[k] <= v) and write cent[k].
+    #pragma omp parallel for
     for (int i = 0; i < N; i++) {
         float v = data[i];
         int lo = 0, hi = L - 1;
@@ -127,6 +129,7 @@ void RotorQuant::encode_decode_batch_f32(float* data, int rows, int cols){
     }
 
     // 3. Inverse transform: apply FWHT again and re-apply flips to return to original domain.
+    #pragma omp parallel for
     for (int r = 0; r < rows; r++) {
         float* row = data + r * cols;
         fwht_f32(row, cols);  // in-place FWHT on the row (H is symmetric)

@@ -35,6 +35,7 @@ rotorQuant/
 .venv/
 venv/
 env/
+backups/
 
 # ── Model weights (multi-GB, never commit) ──
 Llama-*/
@@ -66,3 +67,11 @@ models--*/
 *.xlsx
 *.csv
 test_results.txt
+
+# Jupyter notebooks (local analysis)
+visualize_quantize_timings.ipynb
+*.ipynb
+
+
+# --- Logs --
+seg_fault.logs

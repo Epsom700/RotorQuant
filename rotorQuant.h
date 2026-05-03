@@ -14,13 +14,14 @@ class RotorQuant{
         std::vector<std::vector<double>> decode_2d(const std::vector<std::vector<int>>& binned_2d);
         void encode_decode_2d_inplace(double* data, int rows, int cols);
         void encode_decode_batch_f32(float* data, int rows, int cols);
+        std::vector<float> flips_f32_;        // n
+        std::vector<float> breakpoints_f32_;  // L+1 (with -inf/+inf at ends)
+        std::vector<float> centroids_f32_; 
 
     private:
         Rotation rotation_;
         LloydMax lloyd_max_;
         int n_;    // n*n row-major
-        std::vector<float> flips_f32_;        // n
-        std::vector<float> breakpoints_f32_;  // L+1 (with -inf/+inf at ends)
-        std::vector<float> centroids_f32_; 
+        
         static void fwht_f32(float* data, int n);   // L
 };

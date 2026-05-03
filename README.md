@@ -78,15 +78,15 @@ Training with `num_levels=8` (3-bit), `σ=1.0`, LoRA `r=8`, `batch=4`, `seq_len=
 
 | Metric | Baseline (no quantization) | RotorQuant (3-bit activations) |
 |---|---|---|
-| **Step 1 loss** | 5.17 | 7.24 |
-| **Step 25 loss** | 1.09 | 2.49 |
-| **Step 50 loss** | 1.08 | 1.48 |
-| **Step 100 loss** | 1.95 | 2.53 |
-| **Final avg loss (last 10)** | ~1.85 | ~2.50 |
-| **s/step (steady state)** | ~5–10 s | ~15–30 s |
-| **Peak memory** | 0.47 GB | 6.40 GB |
+| **Step 1 loss** | 5.17 | 7.31 |
+| **Step 25 loss** | 1.14 | 2.39 |
+| **Step 50 loss** | 1.08 | 1.49 |
+| **Step 100 loss** | 1.95 | 2.48 |
+| **Final avg loss (last 10)** | ~1.84 | ~2.42 |
+| **s/step (steady state)** | ~7.3 s | ~9.5 s |
+| **Peak memory** | 0.47 GB | 0.47 GB |
 
-> **Key takeaway:** RotorQuant adds only ~0.6 loss penalty at convergence while compressing all 28 MLP activation layers from fp32/bf16 to 3-bit, enabling deployment on memory-constrained devices. The higher memory during training is expected (gradient buffers, activation caching for STE); at inference time the footprint is much smaller. The switch to FWHT eliminates the n×n Hadamard matrix that was previously cached per-layer.
+> **Key takeaway:** RotorQuant adds only ~0.6 loss penalty at convergence while compressing all 28 MLP activation layers from fp32/bf16 to 3-bit, enabling deployment on memory-constrained devices. The new Metal-accelerated in-place FWHT completely eliminates the n×n Hadamard matrix caching overhead, bringing the training memory footprint down to match the baseline (0.47 GB) while dramatically improving training speed to ~9.5s/step!
 
 ---
 
@@ -94,7 +94,8 @@ Training with `num_levels=8` (3-bit), `σ=1.0`, LoRA `r=8`, `batch=4`, `seq_len=
 
 - **Hadamard rotation via FWHT** — Normalizes activation distributions before quantization using the Fast Walsh-Hadamard Transform in O(n log n) time with no matrix storage.
 - **Lloyd-Max quantizer** — Computes optimal breakpoints and centroids for a Gaussian source, converging via the Lloyd algorithm.
-- **Batched f32 path** — In-place FWHT + elementwise quantize/dequantize for the full encode→quantize→decode round-trip in float32, operating on entire batches at once.
+- **Apple Metal backend** — PyTorch extension (`fwht_metal`) that accelerates the FWHT and quantization steps directly on Apple Silicon GPUs (MPS) for training.
+- **Batched f32 path (CPU)** — In-place FWHT + elementwise quantize/dequantize for the full encode→quantize→decode round-trip in float32, operating on entire batches at once (parallelized with OpenMP).
 - **pybind11 bindings** — Exposes `RotorQuant` to Python with zero-copy NumPy integration.
 - **STE PyTorch layer** — `RotorQuantLayer` wraps any activation function, quantizes its output with a straight-through gradient estimator, and plugs into standard training loops.
 - **LoRA + RotorQuant training** — `train.py` demonstrates fine-tuning a Llama model with LoRA while RotorQuant compresses intermediate activations.
@@ -117,9 +118,22 @@ Training with `num_levels=8` (3-bit), `σ=1.0`, LoRA `r=8`, `batch=4`, `seq_len=
 
 > **Note:** The compiled `rotorquant.*.so` is not included in this repo — you must build it before running the Python scripts.
 
-### 1. Python module (pybind11) — recommended
+### 1. PyTorch Metal Extension — required for training
 
-This is the command you need to produce `rotorquant.cpython-*.so` for use with `quantize.py` and `train.py`:
+To use the GPU-accelerated PyTorch layer on Apple Silicon, compile the Metal shader and the C++ extension:
+
+```bash
+# Compile the Metal shader library
+xcrun -sdk macosx metal -c fwht_quant.metal -o fwht_quant.air
+xcrun -sdk macosx metallib fwht_quant.air -o fwht_quant.metallib
+
+# Install the PyTorch extension
+python3 setup.py install
+```
+
+### 2. Python module (pybind11) — required for CPU Python API
+
+This produces `rotorquant.cpython-*.so` for the Python API:
 
 ```bash
 # Install pybind11 first
@@ -138,7 +152,7 @@ This produces `rotorquant.cpython-3XX-darwin.so` in the project root. Verify it 
 python3 -c "import rotorquant; rq = rotorquant.RotorQuant(8, 8, 1.0); print('OK')"
 ```
 
-### 2. C++ test binary
+### 3. C++ test binary
 
 ```bash
 c++ -O3 -std=c++17 \
@@ -148,7 +162,7 @@ c++ -O3 -std=c++17 \
 ./test_rotor_quant
 ```
 
-### 3. CMake (alternative)
+### 4. CMake (alternative)
 
 ```bash
 mkdir -p build && cd build
@@ -208,12 +222,15 @@ model = inject_rotorquant(model, num_levels=8, sigma=1.0)
 
 ```
 RotorQuant/
-├── rotorQuant.h          # Main RotorQuant class declaration
+├── rotorQuant.h           # Main RotorQuant class declaration
 ├── rotorQuant.cpp         # Encode/decode + batched FWHT path
 ├── rotation.h             # Hadamard rotation class declaration
 ├── rotation.cpp           # FWHT implementation + rotate/inverse
 ├── lloyd_max.h            # Lloyd-Max quantizer class declaration
 ├── lloyd_max.cpp          # Lloyd algorithm + quantize/dequantize
+├── metal_kernel.mm        # PyTorch MPS extension (ObjC++) for Metal backend
+├── fwht_quant.metal       # Metal compute shader for FWHT + quantization
+├── setup.py               # Build script for PyTorch Metal extension
 ├── bindings.cpp           # pybind11 module exposing RotorQuant to Python
 ├── quantize.py            # STE autograd function + RotorQuantLayer (PyTorch)
 ├── train.py               # LoRA fine-tuning script with RotorQuant injection

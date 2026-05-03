@@ -6,18 +6,19 @@ import gc
 import psutil
 import traceback
 from quantize import inject_rotorquant
-
+import os
+os.environ['OMP_NUM_THREADS'] = '8'
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 def get_memory_usage():
     process = psutil.Process()
     return process.memory_info().rss / 1024**3
 
 
 model_name = "/Users/arjunsingh/.cache/huggingface/hub/models--meta-llama--Llama-3.2-3B-Instruct/snapshots/0cb88a4f764b7a12671c53f0838cd831a0843b95"
-NUM_STEPS = 10
+NUM_STEPS = 100
 BATCH_SIZE = 4
 SEQ_LEN = 128
 GRAD_ACCUM = 2
-
 
 def load_fresh_model():
     gc.collect()
