@@ -9,6 +9,7 @@ from quantize import inject_rotorquant
 import os
 os.environ['OMP_NUM_THREADS'] = '8'
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+import pandas as pd
 def get_memory_usage():
     process = psutil.Process()
     return process.memory_info().rss / 1024**3
@@ -146,7 +147,31 @@ tokenizer.pad_token = tokenizer.eos_token
 print("Loading dataset...")
 dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
 
-baseline_losses = run_training(use_rotorquant=False, num_steps=NUM_STEPS, tokenizer=tokenizer, dataset=dataset)
+out_xlsx = "./losses_comparison.xlsx"
+out_csv = "./losses_comparison.csv"
+
+# If a previous losses comparison exists, check for baseline values and skip recomputing baseline
+baseline_losses = None
+try:
+    if os.path.exists(out_xlsx):
+        df_prev = pd.read_excel(out_xlsx)
+    elif os.path.exists(out_csv):
+        df_prev = pd.read_csv(out_csv)
+    else:
+        df_prev = None
+
+    if df_prev is not None and 'baseline_losses' in df_prev.columns and df_prev['baseline_losses'].notna().any():
+        # Use the non-NaN baseline values from the existing file and skip re-running baseline
+        baseline_losses = df_prev['baseline_losses'].dropna().tolist()
+        print(f"Found existing baseline_losses in {out_xlsx if os.path.exists(out_xlsx) else out_csv}; skipping baseline run")
+    else:
+        print("No existing baseline_losses found; will run baseline")
+except Exception as e:
+    print(f"Warning: failed to read existing losses file: {e}; will run baseline")
+
+if baseline_losses is None:
+    baseline_losses = run_training(use_rotorquant=False, num_steps=NUM_STEPS, tokenizer=tokenizer, dataset=dataset)
+
 rotorquant_losses = run_training(use_rotorquant=True, num_steps=NUM_STEPS, tokenizer=tokenizer, dataset=dataset)
 
 print("\n" + "="*60)
@@ -165,13 +190,10 @@ if baseline_losses and rotorquant_losses:
     print(f"rotorquant avg: {sum(rotorquant_losses)/len(rotorquant_losses):.4f}")
 
 
-import pandas as pd
 import math
-out_xlsx = "./losses_comparison.xlsx"
-out_csv = "./losses_comparison.csv"
 try:
-    max_len = max(len(baseline_losses), len(rotorquant_losses))
-    b = baseline_losses + [math.nan] * (max_len - len(baseline_losses))
+    max_len = max(len(baseline_losses) if baseline_losses else 0, len(rotorquant_losses))
+    b = (baseline_losses or []) + [math.nan] * (max_len - len(baseline_losses or []))
     r = rotorquant_losses + [math.nan] * (max_len - len(rotorquant_losses))
     df = pd.DataFrame({"baseline_losses": b, "rotorquant_losses": r})
     df.to_excel(out_xlsx, index=False)
